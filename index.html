@@ -10,7 +10,7 @@
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <title>Змея и Арбуз — толкай и подбрасывай!</title>
 
-    <!-- ⚡ Предзагрузка фонового фото — стартует сразу, до парсинга body -->
+    <!-- ⚡ Предзагрузка фонового фото -->
     <link rel="preload" as="image" href="foto.webp?v=1.0" fetchpriority="high" />
     <link rel="preload" as="image" href="favicon.ico" fetchpriority="high" />
 
@@ -18,75 +18,400 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         html, body { width: 100%; height: 100%; overflow: hidden; }
-        body { margin: 0; overflow: hidden; background: #0a2a12; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #fff; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; position: fixed; }
-        canvas { position: fixed !important; top: 0; left: 0; z-index: 1; width: 100vw; height: 100vh; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-        canvas.game-active { opacity: 1 !important; pointer-events: auto !important; }
-        .page { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.5s, transform 0.5s; transform: scale(0.95); z-index: 100; overflow-y: auto; padding: 20px; padding-top: calc(20px + env(safe-area-inset-top)); padding-bottom: calc(20px + env(safe-area-inset-bottom)); background: rgba(10, 40, 18, 0.97); }
-        .page.active { opacity: 1; pointer-events: all; transform: scale(1); }
-        #page-game { background: transparent !important; backdrop-filter: none !important; }
-        #page-description { position: relative; overflow: hidden; }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #0a2a12;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #fff;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
+            overscroll-behavior: none;
+            position: fixed;
+        }
 
-        /* ⚡ Фон: фиксированный слой + отдельный лоадер, чтобы фото появлялось мгновенно */
+        /* ⚡ Canvas всегда display:block, скрываем только opacity/pointer-events */
+        canvas {
+            display: block;
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            width: 100vw;
+            height: 100vh;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        canvas.game-active {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s, transform 0.5s;
+            transform: scale(0.95);
+            z-index: 100;
+            overflow-y: auto;
+            padding: 20px;
+            padding-top: calc(20px + env(safe-area-inset-top));
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+            background: rgba(10, 40, 18, 0.97);
+        }
+        .page.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: scale(1);
+        }
+
+        #page-game {
+            background: transparent !important;
+            backdrop-filter: none !important;
+        }
+
+        #page-description {
+            position: relative;
+            overflow: hidden;
+        }
+
         .bg-image {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 0; pointer-events: none;
-            opacity: 0; transition: opacity 0.4s ease;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
             background: radial-gradient(circle at center, #143c1e 0%, #051008 100%);
         }
         .bg-image.loaded { opacity: 1; }
-        .bg-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.6)); z-index: 1; pointer-events: none; }
-        #page-description > *:not(.bg-image):not(.bg-overlay) { position: relative; z-index: 2; }
-        .page-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, rgba(20, 60, 30, 0.9) 0%, rgba(5, 15, 8, 0.98) 100%); backdrop-filter: blur(8px); z-index: -1; }
-        .lang-btn-3d { position: absolute !important; top: calc(20px + env(safe-area-inset-top)) !important; right: 20px !important; padding: 12px 24px; font-size: 16px; font-weight: 800; color: #d8ffe0; background: rgba(80, 255, 120, 0.15); backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(120, 255, 150, 0.3); border-radius: 16px; cursor: pointer; transition: all 0.3s; box-shadow: 0 8px 32px rgba(80, 255, 120, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2); text-transform: uppercase; letter-spacing: 1.5px; z-index: 200 !important; }
-        .lang-btn-3d:hover { transform: translateY(-3px) scale(1.05); border-color: rgba(150, 255, 180, 0.7); color: #fff; }
-        .lang-btn-3d:active { transform: translateY(1px) scale(0.97); }
-        .glass-btn-3d { position: relative; padding: 18px 48px; font-size: 18px; font-weight: 800; color: #e8ffe8; background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(80, 255, 120, 0.3); border-radius: 20px; cursor: pointer; transition: all 0.3s; text-transform: uppercase; letter-spacing: 1.5px; overflow: hidden; margin: 12px; z-index: 1; box-shadow: 0 8px 32px rgba(80, 255, 120, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
-        .glass-btn-3d:hover { transform: translateY(-4px) scale(1.03); border-color: rgba(150, 255, 180, 0.7); color: #fff; }
-        .glass-btn-3d:active { transform: translateY(1px) scale(0.97); }
-        .glass-btn-3d.secondary { color: #b8d8c0; border-color: rgba(255, 255, 255, 0.1); }
-        .glass-btn-3d.primary-submit { color: #fff; background: linear-gradient(135deg, rgba(80, 255, 120, 0.25), rgba(30, 150, 60, 0.15)); border-color: rgba(120, 255, 150, 0.7); text-shadow: 0 0 15px rgba(80, 255, 120, 0.5); box-shadow: 0 0 35px rgba(80, 255, 120, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3); padding: 16px 40px; font-size: 17px; }
-        .title-main { font-size: clamp(36px, 8vw, 64px); font-weight: 800; background: linear-gradient(135deg, #80ff90 0%, #30cc50 50%, #108830 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 40px rgba(80, 255, 120, 0.3); margin-bottom: 10px; text-align: center; line-height: 1.1; z-index: 1; }
-        .subtitle { font-size: clamp(14px, 2.8vw, 18px); color: #d0f0d8; text-align: center; max-width: 620px; line-height: 1.6; margin-bottom: 20px; padding: 0 20px; z-index: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.9); }
-        .support-block { width: 100%; max-width: 95vw; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 30px; padding: 10px 20px; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; font-size: 13px; color: #99bba5; text-align: center; margin-top: 20px; }
+
+        .bg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.6));
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        #page-description > *:not(.bg-image):not(.bg-overlay) {
+            position: relative;
+            z-index: 2;
+        }
+
+        .page-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(20, 60, 30, 0.9) 0%, rgba(5, 15, 8, 0.98) 100%);
+            backdrop-filter: blur(8px);
+            z-index: -1;
+        }
+
+        .lang-btn-3d {
+            position: absolute !important;
+            top: calc(20px + env(safe-area-inset-top)) !important;
+            right: 20px !important;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 800;
+            color: #d8ffe0;
+            background: rgba(80, 255, 120, 0.15);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(120, 255, 150, 0.3);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 8px 32px rgba(80, 255, 120, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            z-index: 200 !important;
+        }
+        .lang-btn-3d:hover {
+            transform: translateY(-3px) scale(1.05);
+            border-color: rgba(150, 255, 180, 0.7);
+            color: #fff;
+        }
+        .lang-btn-3d:active {
+            transform: translateY(1px) scale(0.97);
+        }
+
+        .glass-btn-3d {
+            position: relative;
+            padding: 18px 48px;
+            font-size: 18px;
+            font-weight: 800;
+            color: #e8ffe8;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(80, 255, 120, 0.3);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            overflow: hidden;
+            margin: 12px;
+            z-index: 1;
+            box-shadow: 0 8px 32px rgba(80, 255, 120, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .glass-btn-3d:hover {
+            transform: translateY(-4px) scale(1.03);
+            border-color: rgba(150, 255, 180, 0.7);
+            color: #fff;
+        }
+        .glass-btn-3d:active {
+            transform: translateY(1px) scale(0.97);
+        }
+        .glass-btn-3d.secondary {
+            color: #b8d8c0;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        .glass-btn-3d.primary-submit {
+            color: #fff;
+            background: linear-gradient(135deg, rgba(80, 255, 120, 0.25), rgba(30, 150, 60, 0.15));
+            border-color: rgba(120, 255, 150, 0.7);
+            text-shadow: 0 0 15px rgba(80, 255, 120, 0.5);
+            box-shadow: 0 0 35px rgba(80, 255, 120, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            padding: 16px 40px;
+            font-size: 17px;
+        }
+
+        .title-main {
+            font-size: clamp(36px, 8vw, 64px);
+            font-weight: 800;
+            background: linear-gradient(135deg, #80ff90 0%, #30cc50 50%, #108830 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(80, 255, 120, 0.3);
+            margin-bottom: 10px;
+            text-align: center;
+            line-height: 1.1;
+            z-index: 1;
+        }
+
+        .subtitle {
+            font-size: clamp(14px, 2.8vw, 18px);
+            color: #d0f0d8;
+            text-align: center;
+            max-width: 620px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            padding: 0 20px;
+            z-index: 1;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+        }
+
+        .support-block {
+            width: 100%;
+            max-width: 95vw;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 30px;
+            padding: 10px 20px;
+            z-index: 1;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #99bba5;
+            text-align: center;
+            margin-top: 20px;
+        }
         .support-block .highlight { color: #55dd77; font-weight: 800; }
         .support-block .phone { color: #ddd; font-weight: bold; }
-        .support-block .copy-btn { background: rgba(80, 255, 120, 0.1); border: 1px solid #55dd77; color: #55dd77; padding: 4px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: bold; transition: all 0.2s; }
-        .support-block .copy-btn:hover { background: rgba(80, 255, 120, 0.25); transform: scale(1.05); }
-        .support-block a { color: #88bbdd; text-decoration: none; font-weight: bold; }
-        #game-hud { position: absolute; top: calc(20px + env(safe-area-inset-top)); left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; z-index: 50; gap: 10px; }
-        .hud-left, .hud-right { display: flex; flex-direction: column; gap: 6px; pointer-events: auto; }
+        .support-block .copy-btn {
+            background: rgba(80, 255, 120, 0.1);
+            border: 1px solid #55dd77;
+            color: #55dd77;
+            padding: 4px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .support-block .copy-btn:hover {
+            background: rgba(80, 255, 120, 0.25);
+            transform: scale(1.05);
+        }
+        .support-block a {
+            color: #88bbdd;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        #game-hud {
+            position: absolute;
+            top: calc(20px + env(safe-area-inset-top));
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 50;
+            gap: 10px;
+        }
+        .hud-left, .hud-right {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: auto;
+        }
         .hud-right { align-items: flex-end; }
-        /* ⚡ Убран backdrop-filter: на телефоне он пересчитывал подложку каждый кадр */
-        .hud-panel { background: rgba(15, 35, 20, 0.88); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 10px 18px; color: #ddd; font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+
+        /* ⚡ Во время игры без backdrop-filter */
+        .hud-panel {
+            background: rgba(15, 35, 20, 0.88);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 10px 18px;
+            color: #ddd;
+            font-size: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+        }
+
         .hud-progress { font-size: 18px; font-weight: 800; color: #55dd77; text-shadow: 0 0 8px rgba(80, 255, 120, 0.3); }
         .hud-lives { font-size: 20px; font-weight: 800; letter-spacing: 2px; }
         .hud-speed { font-size: 16px; font-weight: 800; color: #88ccff; }
-        .hud-timer { font-size: 24px; font-weight: 800; color: #aaffbb; text-shadow: 0 0 10px rgba(100, 255, 150, 0.3); min-width: 80px; text-align: center; }
+        .hud-timer {
+            font-size: 24px;
+            font-weight: 800;
+            color: #aaffbb;
+            text-shadow: 0 0 10px rgba(100, 255, 150, 0.3);
+            min-width: 80px;
+            text-align: center;
+        }
         .hud-timer.final { color: #88ffaa; text-shadow: 0 0 12px rgba(100, 255, 150, 0.6); }
         .hud-hint { font-size: 13px; font-weight: 700; color: #55dd77; }
-        #jump-btn { position: absolute; bottom: calc(40px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 150px; height: 150px; border-radius: 50%; border: 3px solid rgba(120, 255, 150, 0.7); color: #fff; font-size: 40px; font-weight: 900; cursor: pointer; z-index: 55; box-shadow: 0 8px 40px rgba(80, 255, 120, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3); touch-action: none; -webkit-tap-highlight-color: transparent; transition: all 0.1s; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1; text-shadow: 0 2px 6px rgba(0,0,0,0.6); background: radial-gradient(circle at 30% 30%, rgba(150, 255, 180, 0.5), rgba(30, 150, 60, 0.3)); }
-        #jump-btn:active, #jump-btn.pressed { transform: translateX(-50%) scale(0.93); background: radial-gradient(circle at 50% 50%, rgba(200, 255, 220, 0.7), rgba(80, 255, 120, 0.5)); box-shadow: 0 0 80px rgba(80, 255, 120, 1), inset 0 4px 8px rgba(0,0,0,0.4); }
-        @media (min-width: 700px) { #jump-btn { width: 120px; height: 120px; font-size: 34px; } }
-        .result-score { font-size: clamp(60px, 12vw, 100px); font-weight: 800; color: #55dd77; text-shadow: 0 0 30px rgba(80, 255, 120, 0.5); margin: 20px 0; }
-        .result-label { font-size: 20px; color: #a8c0b0; text-transform: uppercase; letter-spacing: 2px; }
-        .reward-text { font-size: clamp(18px, 4vw, 26px); color: #55dd77; font-weight: 800; text-shadow: 0 0 15px rgba(80, 255, 120, 0.5); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
-        .progress-reached { font-size: 22px; color: #55dd77; font-weight: 800; text-shadow: 0 0 10px rgba(80, 255, 120, 0.4); margin-bottom: 16px; }
-        .confetti { position: fixed; top: -10px; z-index: 9999; pointer-events: none; border-radius: 2px; }
+
+        #jump-btn {
+            position: absolute;
+            bottom: calc(40px + env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 3px solid rgba(120, 255, 150, 0.7);
+            color: #fff;
+            font-size: 40px;
+            font-weight: 900;
+            cursor: pointer;
+            z-index: 55;
+            box-shadow: 0 8px 40px rgba(80, 255, 120, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+            background: radial-gradient(circle at 30% 30%, rgba(150, 255, 180, 0.5), rgba(30, 150, 60, 0.3));
+        }
+        #jump-btn:active,
+        #jump-btn.pressed {
+            transform: translateX(-50%) scale(0.93);
+            background: radial-gradient(circle at 50% 50%, rgba(200, 255, 220, 0.7), rgba(80, 255, 120, 0.5));
+            box-shadow: 0 0 80px rgba(80, 255, 120, 1), inset 0 4px 8px rgba(0,0,0,0.4);
+        }
+
+        @media (min-width: 700px) {
+            #jump-btn { width: 120px; height: 120px; font-size: 34px; }
+        }
+
+        .result-score {
+            font-size: clamp(60px, 12vw, 100px);
+            font-weight: 800;
+            color: #55dd77;
+            text-shadow: 0 0 30px rgba(80, 255, 120, 0.5);
+            margin: 20px 0;
+        }
+        .result-label {
+            font-size: 20px;
+            color: #a8c0b0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .reward-text {
+            font-size: clamp(18px, 4vw, 26px);
+            color: #55dd77;
+            font-weight: 800;
+            text-shadow: 0 0 15px rgba(80, 255, 120, 0.5);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .progress-reached {
+            font-size: 22px;
+            color: #55dd77;
+            font-weight: 800;
+            text-shadow: 0 0 10px rgba(80, 255, 120, 0.4);
+            margin-bottom: 16px;
+        }
+        .confetti {
+            position: fixed;
+            top: -10px;
+            z-index: 9999;
+            pointer-events: none;
+            border-radius: 2px;
+        }
+
         @media (max-width: 700px) {
-            .lang-btn-3d { top: calc(15px + env(safe-area-inset-top)) !important; right: 15px !important; padding: 10px 18px; font-size: 14px; }
+            .lang-btn-3d {
+                top: calc(15px + env(safe-area-inset-top)) !important;
+                right: 15px !important;
+                padding: 10px 18px;
+                font-size: 14px;
+            }
             .hud-panel { font-size: 13px; padding: 8px 12px; }
             .hud-timer { font-size: 18px; }
             .hud-progress { font-size: 15px; }
             .glass-btn-3d { padding: 14px 32px; font-size: 16px; }
             #game-hud { top: calc(14px + env(safe-area-inset-top)); left: 12px; right: 12px; }
-            #jump-btn { width: 120px; height: 120px; font-size: 34px; bottom: calc(30px + env(safe-area-inset-bottom)); }
+            #jump-btn {
+                width: 120px;
+                height: 120px;
+                font-size: 34px;
+                bottom: calc(30px + env(safe-area-inset-bottom));
+            }
         }
     </style>
 </head>
 <body>
 
     <div id="page-description" class="page active">
-        <!-- ⚡ Фото: eager + fetchpriority=high + класс .loaded по onload — появляется мгновенно, без «прыжка» -->
         <img id="bgPhoto"
              src="foto.webp?v=1.0"
              alt="Фон"
@@ -97,17 +422,22 @@
              onload="this.classList.add('loaded')"
              onerror="this.style.display='none'" />
         <div class="bg-overlay"></div>
-        <button class="lang-btn-3d" id="langToggleBtn" onclick="toggleLanguage()">RU / EN</button>
+
+        <button type="button" class="lang-btn-3d" id="langToggleBtn" onclick="toggleLanguage()">RU / EN</button>
+
         <img src="favicon.ico" alt="Логотип" style="width:144px;height:144px;margin-bottom:12px;border-radius:24px;box-shadow:0 0 30px rgba(80,255,120,0.3);border:2px solid rgba(255,255,255,0.15);z-index:1;">
+
         <h1 class="title-main" id="txt-title1">Змея</h1>
         <h1 class="title-main" style="font-size:clamp(30px,6.5vw,52px);margin-top:-8px;" id="txt-title2">И</h1>
         <h1 class="title-main" style="font-size:clamp(30px,6.5vw,52px);margin-top:-8px;" id="txt-title3">Арбуз</h1>
-        <button class="glass-btn-3d" id="txt-startBtn" style="margin:8px auto;z-index:1;">▶ На старт!</button>
+
+        <button type="button" class="glass-btn-3d" id="txt-startBtn" style="margin:8px auto;z-index:1;">▶ На старт!</button>
+
         <div class="support-block">
             <span class="highlight" id="txt-supportTitle">🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</span>
             <span id="txt-supportText1">Приложение бесплатное.</span>
             <span id="txt-supportText2">Перевод: <strong class="phone">8-920-227-56-76</strong></span>
-            <button class="copy-btn" id="txt-copyBtn" onclick="copyPhone()">📋 Копировать</button>
+            <button type="button" class="copy-btn" id="txt-copyBtn" onclick="copyPhone()">📋 Копировать</button>
             <span id="txt-thanks">❤️ Спасибо!</span>
             <a href="https://ancf-hue.github.io/" target="_blank" id="txt-catalog">👉 Каталог Anti-AI Shield</a>
         </div>
@@ -115,6 +445,7 @@
 
     <div id="page-game" class="page" style="justify-content:flex-start;">
         <img src="favicon.ico" alt="Логотип" style="position:absolute;top:calc(15px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:80px;height:80px;border-radius:16px;z-index:60;box-shadow:0 4px 12px rgba(0,0,0,0.5);border:2px solid rgba(255,255,255,0.1);">
+
         <div id="game-hud">
             <div class="hud-left">
                 <div class="hud-panel"><span class="hud-progress" id="progress-display">🍉 0%</span></div>
@@ -126,439 +457,1230 @@
                 <div class="hud-panel"><span class="hud-hint" id="txt-hint">⬆️ Подбрасывай арбуз через препятствия!</span></div>
             </div>
         </div>
-        <button id="jump-btn">⬆</button>
+
+        <button type="button" id="jump-btn">⬆</button>
     </div>
 
     <div id="page-result" class="page">
         <div class="page-bg"></div>
         <img src="favicon.ico" alt="Логотип" style="width:128px;height:128px;margin-bottom:14px;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.1);">
+
         <div class="result-label" id="result-label">⏱ Время вышло!</div>
         <div class="result-score" id="result-emoji">🍉</div>
         <div class="progress-reached" id="result-progress">Путь: 0%</div>
+
         <div id="win-block" style="display: none; text-align: center; width: 100%; max-width: 500px;">
             <div class="reward-text" id="reward-text">🎁 Награда: Красная змея!</div>
             <p class="subtitle" id="result-text-win">Арбуз на финише! Отличные подбрасывания!</p>
-            <button class="glass-btn-3d primary-submit" id="txt-goToBoard" onclick="goToLeaderboard()">🏆 Отправить на Доску почёта →</button>
+            <button type="button" class="glass-btn-3d primary-submit" id="txt-goToBoard" onclick="goToLeaderboard()">🏆 Отправить на Доску почёта →</button>
             <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 8px;">
-                <button class="glass-btn-3d secondary" id="txt-playAgain2" onclick="startGame()" style="padding: 12px 24px; font-size: 14px;">🔄 Ещё раз</button>
-                <button class="glass-btn-3d secondary" id="txt-menu2" onclick="showPage('page-description')" style="padding: 12px 24px; font-size: 14px;">🏠 В меню</button>
+                <button type="button" class="glass-btn-3d secondary" id="txt-playAgain2" onclick="startGame()" style="padding: 12px 24px; font-size: 14px;">🔄 Ещё раз</button>
+                <button type="button" class="glass-btn-3d secondary" id="txt-menu2" onclick="showPage('page-description')" style="padding: 12px 24px; font-size: 14px;">🏠 В меню</button>
             </div>
         </div>
+
         <div id="lose-block" style="display: none; text-align: center;">
             <p class="subtitle" id="result-text-lose">Арбуз разбился!</p>
             <div style="display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px;">
-                <button class="glass-btn-3d" id="txt-playAgain" onclick="startGame()">🔄 Играть снова</button>
-                <button class="glass-btn-3d secondary" id="txt-menu" onclick="showPage('page-description')">🏠 В меню</button>
+                <button type="button" class="glass-btn-3d" id="txt-playAgain" onclick="startGame()">🔄 Играть снова</button>
+                <button type="button" class="glass-btn-3d secondary" id="txt-menu" onclick="showPage('page-description')">🏠 В меню</button>
             </div>
         </div>
     </div>
 
     <script>
-        if (typeof THREE === 'undefined') { document.body.innerHTML = '<div style="padding:40px;color:#fff;text-align:center;"><h1 style="color:#ff6644;">⚠️ Не удалось загрузить Three.js</h1><p>Обновите страницу (F5)</p></div>'; throw new Error('Three.js not loaded'); }
-
-        let currentLang = 'ru';
-        const translations = {
-            ru: { title1:"Змея", title2:"И", title3:"Арбуз", startBtn:"▶ На старт!", supportTitle:"🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙", supportText1:"Приложение бесплатное.", supportText2:"Перевод:", copyBtn:"📋 Копировать", copiedBtn:"✅ Скопировано!", thanks:"❤️ Спасибо!", catalog:"👉 Каталог Anti-AI Shield", hint:"⬆️ Подбрасывай арбуз через препятствия!", playAgain:"🔄 Играть снова", playAgain2:"🔄 Ещё раз", menu:"🏠 В меню", resultTimeLabel:"⏱ ВРЕМЯ ВЫШЛО!", resultTimeText:"Арбуз не доехал до финиша. Попробуй ещё!", resultWinLabel:"🎉 АРБУЗ НА ФИНИШЕ!", resultWinText:"Арбуз на финише! Отличные подбрасывания!", rewardText:"🎁 Награда: Красная змея!", goToBoard:"🏆 Отправить на Доску почёта →", progressReached:"Путь: ", ttsStart:"Игра началась! Змея толкает арбуз вперёд. Когда впереди препятствие, нажми пробел или кнопку, чтобы подбросить арбуз над ним!", ttsWin:"Ура! Арбуз на финише!", ttsLose:"Арбуз разбился.", ttsHit:"Удар! Арбуз треснул!" },
-            en: { title1:"Snake", title2:"And", title3:"Watermelon", startBtn:"▶ Start!", supportTitle:"🤝 SUPPORT THE PROJECT 💙", supportText1:"The app is free.", supportText2:"Transfer:", copyBtn:"📋 Copy", copiedBtn:"✅ Copied!", thanks:"❤️ Thank you!", catalog:"👉 Anti-AI Shield Catalog", hint:"⬆️ Toss the watermelon over obstacles!", playAgain:"🔄 Play Again", playAgain2:"🔄 Again", menu:"🏠 Menu", resultTimeLabel:"⏱ TIME'S UP!", resultTimeText:"The watermelon didn't reach the finish. Try again!", resultWinLabel:"🎉 WATERMELON AT FINISH!", resultWinText:"The watermelon is at the finish! Great tosses!", rewardText:"🎁 Reward: Red Snake!", goToBoard:"🏆 To Hall of Fame →", progressReached:"Path: ", ttsStart:"Game started! The snake pushes the watermelon forward. When an obstacle is ahead, press space or the button to toss the watermelon over it!", ttsWin:"Hurray! Watermelon at the finish!", ttsLose:"The watermelon broke.", ttsHit:"Hit! The watermelon cracked!" }
-        };
-
-        window.toggleLanguage = function() { currentLang = currentLang === 'ru' ? 'en' : 'ru'; document.getElementById('langToggleBtn').textContent = currentLang === 'ru' ? 'RU / EN' : 'EN / RU'; updateLanguage(); };
-        function updateLanguage() {
-            const tr = translations[currentLang];
-            ['txt-title1:title1','txt-title2:title2','txt-title3:title3','txt-startBtn:startBtn','txt-supportTitle:supportTitle','txt-supportText1:supportText1','txt-copyBtn:copyBtn','txt-thanks:thanks','txt-catalog:catalog','txt-hint:hint','txt-playAgain:playAgain','txt-playAgain2:playAgain2','txt-menu:menu','txt-menu2:menu','txt-goToBoard:goToBoard','reward-text:rewardText','result-text-win:resultWinText'].forEach(p=>{const [id,k]=p.split(':');document.getElementById(id).textContent=tr[k];});
-            document.getElementById('txt-supportText2').innerHTML = `${tr.supportText2} <strong class="phone">8-920-227-56-76</strong>`;
+        if (typeof THREE === 'undefined') {
+            document.body.innerHTML = '<div style="padding:40px;color:#fff;text-align:center;"><h1 style="color:#ff6644;">⚠️ Не удалось загрузить Three.js</h1><p>Обновите страницу (F5)</p></div>';
+            throw new Error('Three.js not loaded');
         }
 
-        window.copyPhone = function() {
-            const phone = "8-920-227-56-76"; const btn = document.getElementById('txt-copyBtn'); const tr = translations[currentLang];
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(phone).then(() => { btn.textContent = tr.copiedBtn; btn.style.background="rgba(80,255,120,0.3)"; btn.style.color="#fff"; setTimeout(()=>{btn.textContent=tr.copyBtn; btn.style.background="rgba(80,255,120,0.1)"; btn.style.color="#55dd77";},2000); }).catch(()=>fallbackCopy(phone,btn,tr));
-            } else fallbackCopy(phone, btn, tr);
-        };
-        function fallbackCopy(phone, btn, tr) { const ta=document.createElement("textarea"); ta.value=phone; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy"); btn.textContent=tr.copiedBtn; setTimeout(()=>btn.textContent=tr.copyBtn,2000);}catch(e){} document.body.removeChild(ta); }
+        let currentLang = 'ru';
 
-        function vibrate(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+        const translations = {
+            ru: {
+                title1: "Змея",
+                title2: "И",
+                title3: "Арбуз",
+                startBtn: "▶ На старт!",
+                supportTitle: "🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙",
+                supportText1: "Приложение бесплатное.",
+                supportText2: "Перевод:",
+                copyBtn: "📋 Копировать",
+                copiedBtn: "✅ Скопировано!",
+                thanks: "❤️ Спасибо!",
+                catalog: "👉 Каталог Anti-AI Shield",
+                hint: "⬆️ Подбрасывай арбуз через препятствия!",
+                playAgain: "🔄 Играть снова",
+                playAgain2: "🔄 Ещё раз",
+                menu: "🏠 В меню",
+                resultTimeLabel: "⏱ ВРЕМЯ ВЫШЛО!",
+                resultTimeText: "Арбуз не доехал до финиша. Попробуй ещё!",
+                resultWinLabel: "🎉 АРБУЗ НА ФИНИШЕ!",
+                resultWinText: "Арбуз на финише! Отличные подбрасывания!",
+                resultCrashLabel: "💥 АРБУЗ РАЗБИЛСЯ!",
+                rewardText: "🎁 Награда: Красная змея!",
+                goToBoard: "🏆 Отправить на Доску почёта →",
+                progressReached: "Путь: ",
+                ttsStart: "Игра началась! Змея толкает арбуз вперёд. Когда впереди препятствие, нажми пробел или кнопку, чтобы подбросить арбуз над ним!",
+                ttsWin: "Ура! Арбуз на финише!",
+                ttsLose: "Арбуз разбился.",
+                ttsHit: "Удар! Арбуз треснул!"
+            },
+            en: {
+                title1: "Snake",
+                title2: "And",
+                title3: "Watermelon",
+                startBtn: "▶ Start!",
+                supportTitle: "🤝 SUPPORT THE PROJECT 💙",
+                supportText1: "The app is free.",
+                supportText2: "Transfer:",
+                copyBtn: "📋 Copy",
+                copiedBtn: "✅ Copied!",
+                thanks: "❤️ Thank you!",
+                catalog: "👉 Anti-AI Shield Catalog",
+                hint: "⬆️ Toss the watermelon over obstacles!",
+                playAgain: "🔄 Play Again",
+                playAgain2: "🔄 Again",
+                menu: "🏠 Menu",
+                resultTimeLabel: "⏱ TIME'S UP!",
+                resultTimeText: "The watermelon didn't reach the finish. Try again!",
+                resultWinLabel: "🎉 WATERMELON AT FINISH!",
+                resultWinText: "The watermelon is at the finish! Great tosses!",
+                resultCrashLabel: "💥 WATERMELON CRASHED!",
+                rewardText: "🎁 Reward: Red Snake!",
+                goToBoard: "🏆 To Hall of Fame →",
+                progressReached: "Path: ",
+                ttsStart: "Game started! The snake pushes the watermelon forward. When an obstacle is ahead, press space or the button to toss the watermelon over it!",
+                ttsWin: "Hurray! Watermelon at the finish!",
+                ttsLose: "The watermelon broke.",
+                ttsHit: "Hit! The watermelon cracked!"
+            }
+        };
+
+        window.toggleLanguage = function () {
+            currentLang = currentLang === 'ru' ? 'en' : 'ru';
+            document.getElementById('langToggleBtn').textContent = currentLang === 'ru' ? 'RU / EN' : 'EN / RU';
+            updateLanguage();
+        };
+
+        function updateLanguage() {
+            const tr = translations[currentLang];
+
+            [
+                'txt-title1:title1',
+                'txt-title2:title2',
+                'txt-title3:title3',
+                'txt-startBtn:startBtn',
+                'txt-supportTitle:supportTitle',
+                'txt-supportText1:supportText1',
+                'txt-copyBtn:copyBtn',
+                'txt-thanks:thanks',
+                'txt-catalog:catalog',
+                'txt-hint:hint',
+                'txt-playAgain:playAgain',
+                'txt-playAgain2:playAgain2',
+                'txt-menu:menu',
+                'txt-menu2:menu',
+                'txt-goToBoard:goToBoard',
+                'reward-text:rewardText',
+                'result-text-win:resultWinText'
+            ].forEach(p => {
+                const [id, k] = p.split(':');
+                const el = document.getElementById(id);
+                if (el) el.textContent = tr[k];
+            });
+
+            const supportText2 = document.getElementById('txt-supportText2');
+            if (supportText2) {
+                supportText2.innerHTML = `${tr.supportText2} <strong class="phone">8-920-227-56-76</strong>`;
+            }
+        }
+
+        window.copyPhone = function () {
+            const phone = "8-920-227-56-76";
+            const btn = document.getElementById('txt-copyBtn');
+            const tr = translations[currentLang];
+
+            if (!btn) return;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(phone).then(() => {
+                    btn.textContent = tr.copiedBtn;
+                    btn.style.background = "rgba(80, 255, 120, 0.3)";
+                    btn.style.color = "#fff";
+                    setTimeout(() => {
+                        btn.textContent = tr.copyBtn;
+                        btn.style.background = "rgba(80, 255, 120, 0.1)";
+                        btn.style.color = "#55dd77";
+                    }, 2000);
+                }).catch(() => fallbackCopy(phone, btn, tr));
+            } else {
+                fallbackCopy(phone, btn, tr);
+            }
+        };
+
+        function fallbackCopy(phone, btn, tr) {
+            const ta = document.createElement("textarea");
+            ta.value = phone;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand("copy");
+                btn.textContent = tr.copiedBtn;
+                setTimeout(() => btn.textContent = tr.copyBtn, 2000);
+            } catch (e) {}
+            document.body.removeChild(ta);
+        }
+
+        function vibrate(ms) {
+            try {
+                if (navigator.vibrate) navigator.vibrate(ms);
+            } catch (e) {}
+        }
+
+        // ⚡ ВАЖНО: снимаем фокус с кнопки, чтобы Пробел не «нажимал» её повторно
+        function blurActive() {
+            const el = document.activeElement;
+            if (el && el !== document.body && typeof el.blur === 'function') {
+                el.blur();
+            }
+        }
 
         let audioCtx = null;
-        function initAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){return;} } if (audioCtx && audioCtx.state==='suspended') audioCtx.resume().catch(e=>{}); }
-        function playTone(f,d,type='sine',vol=0.2){ if(!audioCtx||audioCtx.state!=='running')return; try{const o=audioCtx.createOscillator();const g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d);}catch(e){} }
-        function playJump(){ playTone(300,0.1,'sine',0.25); setTimeout(()=>playTone(500,0.12,'sine',0.2),70); }
-        function playHit(){ playTone(150,0.2,'sawtooth',0.35); setTimeout(()=>playTone(80,0.3,'sawtooth',0.3),90); }
-        function playWinSound(){ playTone(523,0.15,'sine',0.25); setTimeout(()=>playTone(659,0.15,'sine',0.25),100); setTimeout(()=>playTone(784,0.15,'sine',0.25),200); setTimeout(()=>playTone(1046,0.35,'sine',0.3),300); }
-        function playLoseSound(){ playTone(280,0.2,'sawtooth',0.3); setTimeout(()=>playTone(180,0.3,'sawtooth',0.25),150); setTimeout(()=>playTone(110,0.5,'sawtooth',0.2),350); }
 
-        document.addEventListener('click', initAudio, { once:true });
-        document.addEventListener('keydown', initAudio, { once:true });
-        document.addEventListener('touchstart', initAudio, { once:true, passive:true });
+        function initAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    return;
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(e => {});
+            }
+        }
 
-        // ⚡ TTS с троттлингом — не чаще раза в 1.5 с, иначе UI-поток забивается вызовами синтезатора
+        function playTone(f, d, type = 'sine', vol = 0.2) {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            try {
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.type = type;
+                o.frequency.setValueAtTime(f, audioCtx.currentTime);
+                g.gain.setValueAtTime(vol, audioCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
+                o.connect(g);
+                g.connect(audioCtx.destination);
+                o.start();
+                o.stop(audioCtx.currentTime + d);
+            } catch (e) {}
+        }
+
+        function playJump() {
+            playTone(300, 0.1, 'sine', 0.25);
+            setTimeout(() => playTone(500, 0.12, 'sine', 0.2), 70);
+        }
+
+        function playHit() {
+            playTone(150, 0.2, 'sawtooth', 0.35);
+            setTimeout(() => playTone(80, 0.3, 'sawtooth', 0.3), 90);
+        }
+
+        function playWinSound() {
+            playTone(523, 0.15, 'sine', 0.25);
+            setTimeout(() => playTone(659, 0.15, 'sine', 0.25), 100);
+            setTimeout(() => playTone(784, 0.15, 'sine', 0.25), 200);
+            setTimeout(() => playTone(1046, 0.35, 'sine', 0.3), 300);
+        }
+
+        function playLoseSound() {
+            playTone(280, 0.2, 'sawtooth', 0.3);
+            setTimeout(() => playTone(180, 0.3, 'sawtooth', 0.25), 150);
+            setTimeout(() => playTone(110, 0.5, 'sawtooth', 0.2), 350);
+        }
+
+        document.addEventListener('click', initAudio, { once: true });
+        document.addEventListener('keydown', initAudio, { once: true });
+        document.addEventListener('touchstart', initAudio, { once: true, passive: true });
+
+        // ⚡ TTS: в активном геймплее лучше выключен, чтобы не фризить UI-поток.
+        const TTS_ENABLED = true;
+        const TTS_ENABLE_IN_GAME = false;
         let lastSpeakAt = 0;
-        function speakText(k, force = false){
+
+        function speakText(k, force = false) {
+            if (!TTS_ENABLED) return;
+            if (!force && !TTS_ENABLE_IN_GAME) return;
+
             const now = performance.now();
-            if(!force && now - lastSpeakAt < 1500) return;
+            if (!force && now - lastSpeakAt < 1500) return;
             lastSpeakAt = now;
+
             const t = translations[currentLang][k] || k;
-            if(!('speechSynthesis' in window)) return;
-            try{
+            if (!('speechSynthesis' in window)) return;
+
+            try {
                 window.speechSynthesis.cancel();
                 const u = new SpeechSynthesisUtterance(t);
                 u.lang = currentLang === 'ru' ? 'ru-RU' : 'en-US';
-                u.rate = 1.05; u.pitch = 1.0;
+                u.rate = 1.05;
+                u.pitch = 1.0;
                 window.speechSynthesis.speak(u);
-            }catch(e){}
+            } catch (e) {}
         }
 
         const MAIN_LEADERBOARD_URL = "https://anti-ii-zmeya-vse-igry.vercel.app/";
         const GAME_NAME_FOR_BOARD = "🐍 Змея и Арбуз";
         const REWARD_SNAKES_ON_WIN = 1;
-        function createSignedToken(game, snakes){ const nonce=Date.now().toString(36)+Math.random().toString(36).slice(2,8); const timestamp=Date.now(); const data={g:game,s:snakes,t:timestamp,n:nonce}; const sig=btoa(unescape(encodeURIComponent(data.g+'|'+data.s+'|'+data.t+'|'+data.n+'|AntonKuznetsovSnakeProject2026'))); data.sig=sig; return btoa(unescape(encodeURIComponent(JSON.stringify(data)))); }
-        window.goToLeaderboard = function(){ try{ const token=createSignedToken(GAME_NAME_FOR_BOARD, REWARD_SNAKES_ON_WIN); const url=MAIN_LEADERBOARD_URL+"?reward="+token; const w=window.open(url,'_blank'); if(!w||w.closed) window.location.href=url; }catch(e){} };
+
+        function createSignedToken(game, snakes) {
+            const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+            const timestamp = Date.now();
+            const data = { g: game, s: snakes, t: timestamp, n: nonce };
+            const sig = btoa(unescape(encodeURIComponent(data.g + '|' + data.s + '|' + data.t + '|' + data.n + '|AntonKuznetsovSnakeProject2026')));
+            data.sig = sig;
+            return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+        }
+
+        window.goToLeaderboard = function () {
+            try {
+                const token = createSignedToken(GAME_NAME_FOR_BOARD, REWARD_SNAKES_ON_WIN);
+                const url = MAIN_LEADERBOARD_URL + "?reward=" + token;
+                const w = window.open(url, '_blank');
+                if (!w || w.closed) window.location.href = url;
+            } catch (e) {}
+        };
 
         // ============================================================
         // 🎮 МЕХАНИКА
         // ============================================================
-        let isGameActive=false, gameTimeLeft=180, timerInterval=null;
-        let progress=0, speed=0;
-        let jumpY=0, jumpVel=0, onGround=true;
-        let lives=3, shakeTime=0;
-        const PATH_RUN=100;
-        const MELON_R=1.0;
-        const JUMP_VEL=12;
-        const GRAV=18;
-        let obstacles=[];
+        let isGameActive = false;
+        let gameTimeLeft = 180;
+        let timerInterval = null;
 
-        const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        const isLowPerf=isMobile||window.innerWidth<768;
-        const shadowMapSize=isLowPerf?512:1536;
-        const maxPixelRatio=isLowPerf?1.2:2;
+        let progress = 0;
+        let speed = 0;
 
-        const sceneColor=0x87ceeb;
-        const scene=new THREE.Scene();
-        scene.background=new THREE.Color(sceneColor);
-        scene.fog=new THREE.Fog(sceneColor,80,240);
-        const camera=new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 400);
+        let jumpY = 0;
+        let jumpVel = 0;
+        let onGround = true;
+
+        let lives = 3;
+        let shakeTime = 0;
+
+        const PATH_RUN = 100;
+        const MELON_R = 1.0;
+        const JUMP_VEL = 12;
+        const GRAV = 18;
+
+        let obstacles = [];
+
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isLowPerf = isMobile || window.innerWidth < 768;
+        const enableShadows = !isLowPerf;
+        const shadowMapSize = isLowPerf ? 512 : 1536;
+        const maxPixelRatio = isLowPerf ? 1.2 : 2;
+
+        const sceneColor = 0x87ceeb;
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(sceneColor);
+        scene.fog = new THREE.Fog(sceneColor, 80, 240);
+
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 400);
 
         let renderer;
         try {
-            renderer=new THREE.WebGLRenderer({antialias:!isMobile, alpha:true, powerPreference:"high-performance"});
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.shadowMap.bias=0.0005;
-            renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
-            renderer.domElement.style.position='fixed'; renderer.domElement.style.top='0'; renderer.domElement.style.left='0';
-            renderer.domElement.style.zIndex='1'; renderer.domElement.style.touchAction='none';
-            renderer.domElement.style.display='none';
-            document.body.appendChild(renderer.domElement);
-        } catch(e){ document.body.innerHTML='<div style="padding:40px;color:#fff;text-align:center;"><h1 style="color:#ff6644;">⚠️ Ошибка WebGL</h1></div>'; throw e; }
+            renderer = new THREE.WebGLRenderer({
+                antialias: !isMobile,
+                alpha: true,
+                powerPreference: "high-performance"
+            });
 
-        scene.add(new THREE.HemisphereLight(0xbfe8ff,0x3a5a2a,0.8));
-        scene.add(new THREE.AmbientLight(0x88aa88,0.5));
-        const sunLight=new THREE.DirectionalLight(0xfff2cc,1.2);
-        sunLight.position.set(40,60,40); sunLight.castShadow=true;
-        sunLight.shadow.mapSize.width=shadowMapSize; sunLight.shadow.mapSize.height=shadowMapSize;
-        sunLight.shadow.camera.near=0.5; sunLight.shadow.camera.far=400;
-        sunLight.shadow.camera.left=-80; sunLight.shadow.camera.right=80;
-        sunLight.shadow.camera.top=80; sunLight.shadow.camera.bottom=-80;
-        sunLight.shadow.camera.updateProjectionMatrix();  // ⚡ без этого тени работают на дефолтных ±5
-        sunLight.shadow.bias=-0.001;
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = enableShadows;
+            if (enableShadows) {
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            }
+
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+
+            Object.assign(renderer.domElement.style, {
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                zIndex: '1',
+                touchAction: 'none'
+            });
+
+            document.body.appendChild(renderer.domElement);
+        } catch (e) {
+            document.body.innerHTML = '<div style="padding:40px;color:#fff;text-align:center;"><h1 style="color:#ff6644;">⚠️ Ошибка WebGL</h1></div>';
+            throw e;
+        }
+
+        scene.add(new THREE.HemisphereLight(0xbfe8ff, 0x3a5a2a, 0.8));
+        scene.add(new THREE.AmbientLight(0x88aa88, 0.5));
+
+        const sunLight = new THREE.DirectionalLight(0xfff2cc, 1.2);
+        sunLight.position.set(40, 60, 40);
+        sunLight.castShadow = enableShadows;
+
+        if (enableShadows) {
+            sunLight.shadow.mapSize.width = shadowMapSize;
+            sunLight.shadow.mapSize.height = shadowMapSize;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 400;
+            sunLight.shadow.camera.left = -80;
+            sunLight.shadow.camera.right = 80;
+            sunLight.shadow.camera.top = 80;
+            sunLight.shadow.camera.bottom = -80;
+            sunLight.shadow.camera.updateProjectionMatrix();
+            sunLight.shadow.bias = -0.001;
+        }
+
         scene.add(sunLight);
 
-        const sun=new THREE.Mesh(new THREE.SphereGeometry(8,32,32), new THREE.MeshBasicMaterial({color:0xffffaa}));
-        sun.position.set(100,50,-100); scene.add(sun);
-        const sunGlow=new THREE.Mesh(new THREE.SphereGeometry(14,32,32), new THREE.MeshBasicMaterial({color:0xffff88,transparent:true,opacity:0.3}));
-        sunGlow.position.copy(sun.position); scene.add(sunGlow);
+        const sun = new THREE.Mesh(
+            new THREE.SphereGeometry(8, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffffaa })
+        );
+        sun.position.set(100, 50, -100);
+        scene.add(sun);
 
-        const cloudMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.8});
-        for(let i=0;i<8;i++){ const c=new THREE.Mesh(new THREE.SphereGeometry(4+Math.random()*3,8,8),cloudMat); c.scale.set(1.8,0.6,1); c.position.set(-80+Math.random()*200, 25+Math.random()*20, -80-Math.random()*40); scene.add(c); }
+        const sunGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(14, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffff88, transparent: true, opacity: 0.3 })
+        );
+        sunGlow.position.copy(sun.position);
+        scene.add(sunGlow);
 
-        function worldX(pos){ return -50 + pos*(PATH_RUN/100)*1.1; }
+        const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+        for (let i = 0; i < 8; i++) {
+            const c = new THREE.Mesh(new THREE.SphereGeometry(4 + Math.random() * 3, 8, 8), cloudMat);
+            c.scale.set(1.8, 0.6, 1);
+            c.position.set(-80 + Math.random() * 200, 25 + Math.random() * 20, -80 - Math.random() * 40);
+            scene.add(c);
+        }
 
-        const trackMat=new THREE.MeshStandardMaterial({color:0x8a6a3a, roughness:0.9, flatShading:true, emissive:0x221108, emissiveIntensity:0.2});
-        const track=new THREE.Mesh(new THREE.BoxGeometry(250, 0.6, 6), trackMat);
-        track.position.set(0,-0.3,0);
-        track.castShadow=true; track.receiveShadow=true;
+        function worldX(pos) {
+            return -50 + pos * (PATH_RUN / 100) * 1.1;
+        }
+
+        const trackMat = new THREE.MeshStandardMaterial({
+            color: 0x8a6a3a,
+            roughness: 0.9,
+            flatShading: true,
+            emissive: 0x221108,
+            emissiveIntensity: 0.2
+        });
+
+        const track = new THREE.Mesh(new THREE.BoxGeometry(250, 0.6, 6), trackMat);
+        track.position.set(0, -0.3, 0);
+        track.castShadow = enableShadows;
+        track.receiveShadow = enableShadows;
         scene.add(track);
 
-        const grassMat=new THREE.MeshStandardMaterial({color:0x3a8a2a,roughness:0.9,flatShading:true,emissive:0x113311,emissiveIntensity:0.2});
-        for(let i=0;i<40;i++){ const g=new THREE.Mesh(new THREE.ConeGeometry(0.15,0.6,4),grassMat); g.position.set(-120+Math.random()*240, 0.2, (Math.random()<0.5?-1:1)*(3.5+Math.random()*3)); scene.add(g); }
+        const grassMat = new THREE.MeshStandardMaterial({
+            color: 0x3a8a2a,
+            roughness: 0.9,
+            flatShading: true,
+            emissive: 0x113311,
+            emissiveIntensity: 0.2
+        });
 
-        const farGround=new THREE.Mesh(new THREE.PlaneGeometry(2000,1500), new THREE.MeshStandardMaterial({color:0x4a8a3a,roughness:1}));
-        farGround.rotation.x=-Math.PI/2; farGround.position.set(0,-2,-200); scene.add(farGround);
+        const grassCount = isLowPerf ? 18 : 40;
+        for (let i = 0; i < grassCount; i++) {
+            const g = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.6, 4), grassMat);
+            g.position.set(
+                -120 + Math.random() * 240,
+                0.2,
+                (Math.random() < 0.5 ? -1 : 1) * (3.5 + Math.random() * 3)
+            );
+            scene.add(g);
+        }
 
-        const hillMat=new THREE.MeshStandardMaterial({color:0x3a7a2a,roughness:1,flatShading:true,emissive:0x113311,emissiveIntensity:0.2});
-        [[-80,20,-120,30],[60,25,-140,35],[0,15,-100,25],[-40,18,-160,28],[100,22,-180,32]].forEach(([x,h,z,r])=>{ const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,6),hillMat); m.position.set(x,-2+h/2,z); scene.add(m); });
+        const farGround = new THREE.Mesh(
+            new THREE.PlaneGeometry(2000, 1500),
+            new THREE.MeshStandardMaterial({ color: 0x4a8a3a, roughness: 1 })
+        );
+        farGround.rotation.x = -Math.PI / 2;
+        farGround.position.set(0, -2, -200);
+        scene.add(farGround);
 
-        const finishGroup=new THREE.Group();
-        const postMat2=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.6});
-        const fp1=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,4,6),postMat2); fp1.position.set(0,2,2); finishGroup.add(fp1);
-        const fp2=fp1.clone(); fp2.position.z=-2; finishGroup.add(fp2);
-        const banner=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.8,4.4), new THREE.MeshBasicMaterial({color:0xff3344}));
-        banner.position.set(0,3.6,0); finishGroup.add(banner);
-        const finishGlow=new THREE.PointLight(0xffaa44,1.2,12); finishGlow.position.set(0,3,0); finishGroup.add(finishGlow);
-        finishGroup.position.set(worldX(100)+2,0,0);
+        const hillMat = new THREE.MeshStandardMaterial({
+            color: 0x3a7a2a,
+            roughness: 1,
+            flatShading: true,
+            emissive: 0x113311,
+            emissiveIntensity: 0.2
+        });
+
+        [
+            [-80, 20, -120, 30],
+            [60, 25, -140, 35],
+            [0, 15, -100, 25],
+            [-40, 18, -160, 28],
+            [100, 22, -180, 32]
+        ].forEach(([x, h, z, r]) => {
+            const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), hillMat);
+            m.position.set(x, -2 + h / 2, z);
+            scene.add(m);
+        });
+
+        const finishGroup = new THREE.Group();
+        const postMat2 = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+
+        const fp1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 4, 6), postMat2);
+        fp1.position.set(0, 2, 2);
+        finishGroup.add(fp1);
+
+        const fp2 = fp1.clone();
+        fp2.position.z = -2;
+        finishGroup.add(fp2);
+
+        const banner = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.8, 4.4),
+            new THREE.MeshBasicMaterial({ color: 0xff3344 })
+        );
+        banner.position.set(0, 3.6, 0);
+        finishGroup.add(banner);
+
+        if (!isLowPerf) {
+            const finishGlow = new THREE.PointLight(0xffaa44, 1.2, 12);
+            finishGlow.position.set(0, 3, 0);
+            finishGroup.add(finishGlow);
+        }
+
+        finishGroup.position.set(worldX(100) + 2, 0, 0);
         scene.add(finishGroup);
 
         // 🐍 ЗМЕЯ
-        const snakeGroup=new THREE.Group();
+        const snakeGroup = new THREE.Group();
         scene.add(snakeGroup);
-        const SEGMENTS=24, BASE_SEGMENT_RADIUS=0.35, SEGMENT_SPACING=0.45;
-        const snakeBody=[];
-        const bodyMat=new THREE.MeshPhysicalMaterial({color:0xff1111,transparent:true,opacity:0.7,roughness:0.05,metalness:0.35,clearcoat:0.95,clearcoatRoughness:0.08,emissive:0x660000,emissiveIntensity:0.4,side:THREE.DoubleSide});
-        const baseRadii=[]; for(let i=0;i<SEGMENTS;i++){const t=i/(SEGMENTS-1); baseRadii.push(BASE_SEGMENT_RADIUS*(1-t*0.7));}
-        for(let i=0;i<SEGMENTS;i++){ const d=isLowPerf?10:16; const m=new THREE.Mesh(new THREE.SphereGeometry(baseRadii[i],d,d),bodyMat); m.castShadow=!isLowPerf; snakeGroup.add(m); snakeBody.push(m); }
-        const headMat=new THREE.MeshPhysicalMaterial({color:0xff2222,transparent:true,opacity:0.75,roughness:0.03,metalness:0.4,clearcoat:1.0,clearcoatRoughness:0.05,emissive:0x880000,emissiveIntensity:0.5,side:THREE.DoubleSide});
-        const headDetail=isLowPerf?16:28;
-        const headGeo=new THREE.SphereGeometry(0.6,headDetail,headDetail); headGeo.scale(1,0.85,1.4);
-        const head=new THREE.Mesh(headGeo,headMat); head.castShadow=true; snakeGroup.add(head);
-        const headLight=new THREE.PointLight(0xff5533,1.2,10); headLight.position.set(0,0.8,1.5); head.add(headLight);
-        function createEye(ox,oy,oz){ const g=new THREE.Group(); const w=new THREE.Mesh(new THREE.SphereGeometry(0.16,12,12), new THREE.MeshStandardMaterial({color:0xffffee,emissive:0x222211,emissiveIntensity:0.3})); w.scale.set(1,1.1,0.9); g.add(w); const ir=new THREE.Mesh(new THREE.SphereGeometry(0.1,12,12), new THREE.MeshStandardMaterial({color:0xffcc00,emissive:0xffaa00,emissiveIntensity:0.8})); ir.position.z=0.12; ir.scale.set(1,1.2,0.5); g.add(ir); const pu=new THREE.Mesh(new THREE.SphereGeometry(0.05,10,10), new THREE.MeshStandardMaterial({color:0x000000})); pu.scale.set(0.5,1.6,0.4); pu.position.z=0.18; g.add(pu); g.position.set(ox,oy,oz); return g; }
-        head.add(createEye(-0.3,0.25,0.55)); head.add(createEye(0.3,0.25,0.55));
-        const tongueGroup=new THREE.Group();
-        const tongueBase=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.025,0.35,6), new THREE.MeshStandardMaterial({color:0xff2244,emissive:0x880011,emissiveIntensity:0.5})); tongueBase.rotation.x=Math.PI/2; tongueBase.position.z=0.15; tongueGroup.add(tongueBase);
-        tongueGroup.position.set(0,-0.2,0.6); head.add(tongueGroup);
+
+        const SEGMENTS = 24;
+        const BASE_SEGMENT_RADIUS = 0.35;
+        const SEGMENT_SPACING = 0.45;
+        const snakeBody = [];
+
+        const bodyMat = isLowPerf
+            ? new THREE.MeshStandardMaterial({
+                color: 0xff2222,
+                roughness: 0.35,
+                metalness: 0.1,
+                emissive: 0x550000,
+                emissiveIntensity: 0.35
+            })
+            : new THREE.MeshPhysicalMaterial({
+                color: 0xff1111,
+                transparent: true,
+                opacity: 0.7,
+                roughness: 0.05,
+                metalness: 0.35,
+                clearcoat: 0.95,
+                clearcoatRoughness: 0.08,
+                emissive: 0x660000,
+                emissiveIntensity: 0.4,
+                side: THREE.DoubleSide
+            });
+
+        const baseRadii = [];
+        for (let i = 0; i < SEGMENTS; i++) {
+            const t = i / (SEGMENTS - 1);
+            baseRadii.push(BASE_SEGMENT_RADIUS * (1 - t * 0.7));
+        }
+
+        for (let i = 0; i < SEGMENTS; i++) {
+            const d = isLowPerf ? 10 : 16;
+            const m = new THREE.Mesh(new THREE.SphereGeometry(baseRadii[i], d, d), bodyMat);
+            m.castShadow = enableShadows;
+            snakeGroup.add(m);
+            snakeBody.push(m);
+        }
+
+        const headMat = isLowPerf
+            ? new THREE.MeshStandardMaterial({
+                color: 0xff3333,
+                roughness: 0.3,
+                metalness: 0.12,
+                emissive: 0x660000,
+                emissiveIntensity: 0.4
+            })
+            : new THREE.MeshPhysicalMaterial({
+                color: 0xff2222,
+                transparent: true,
+                opacity: 0.75,
+                roughness: 0.03,
+                metalness: 0.4,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.05,
+                emissive: 0x880000,
+                emissiveIntensity: 0.5,
+                side: THREE.DoubleSide
+            });
+
+        const headDetail = isLowPerf ? 16 : 28;
+        const headGeo = new THREE.SphereGeometry(0.6, headDetail, headDetail);
+        headGeo.scale(1, 0.85, 1.4);
+
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.castShadow = enableShadows;
+        snakeGroup.add(head);
+
+        if (!isLowPerf) {
+            const headLight = new THREE.PointLight(0xff5533, 1.2, 10);
+            headLight.position.set(0, 0.8, 1.5);
+            head.add(headLight);
+        }
+
+        function createEye(ox, oy, oz) {
+            const g = new THREE.Group();
+
+            const w = new THREE.Mesh(
+                new THREE.SphereGeometry(0.16, 12, 12),
+                new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0x222211, emissiveIntensity: 0.3 })
+            );
+            w.scale.set(1, 1.1, 0.9);
+            g.add(w);
+
+            const ir = new THREE.Mesh(
+                new THREE.SphereGeometry(0.1, 12, 12),
+                new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffaa00, emissiveIntensity: 0.8 })
+            );
+            ir.position.z = 0.12;
+            ir.scale.set(1, 1.2, 0.5);
+            g.add(ir);
+
+            const pu = new THREE.Mesh(
+                new THREE.SphereGeometry(0.05, 10, 10),
+                new THREE.MeshStandardMaterial({ color: 0x000000 })
+            );
+            pu.scale.set(0.5, 1.6, 0.4);
+            pu.position.z = 0.18;
+            g.add(pu);
+
+            g.position.set(ox, oy, oz);
+            return g;
+        }
+
+        head.add(createEye(-0.3, 0.25, 0.55));
+        head.add(createEye(0.3, 0.25, 0.55));
+
+        const tongueGroup = new THREE.Group();
+        const tongueBase = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.02, 0.025, 0.35, 6),
+            new THREE.MeshStandardMaterial({ color: 0xff2244, emissive: 0x880011, emissiveIntensity: 0.5 })
+        );
+        tongueBase.rotation.x = Math.PI / 2;
+        tongueBase.position.z = 0.15;
+        tongueGroup.add(tongueBase);
+        tongueGroup.position.set(0, -0.2, 0.6);
+        head.add(tongueGroup);
 
         // 🍉 АРБУЗ
-        const melonGroup=new THREE.Group();
-        (function buildMelon(){
-            const melonMat=new THREE.MeshStandardMaterial({color:0x22aa33,roughness:0.4,metalness:0.05,emissive:0x114411,emissiveIntensity:0.3,flatShading:true});
-            const m=new THREE.Mesh(new THREE.SphereGeometry(MELON_R,isLowPerf?14:24,isLowPerf?14:24),melonMat);
-            m.castShadow=true;
+        const melonGroup = new THREE.Group();
+
+        (function buildMelon() {
+            const melonMat = new THREE.MeshStandardMaterial({
+                color: 0x22aa33,
+                roughness: 0.4,
+                metalness: 0.05,
+                emissive: 0x114411,
+                emissiveIntensity: 0.3,
+                flatShading: true
+            });
+
+            const m = new THREE.Mesh(
+                new THREE.SphereGeometry(MELON_R, isLowPerf ? 14 : 24, isLowPerf ? 14 : 24),
+                melonMat
+            );
+            m.castShadow = enableShadows;
             melonGroup.add(m);
-            const stripeMat=new THREE.MeshStandardMaterial({color:0x116622,roughness:0.5,emissive:0x0a330a,emissiveIntensity:0.2});
-            for(let i=0;i<5;i++){ const s=new THREE.Mesh(new THREE.TorusGeometry(MELON_R,0.06,6,20),stripeMat); s.rotation.y = (i/5)*Math.PI; s.rotation.x=Math.PI/2; melonGroup.add(s); }
+
+            const stripeMat = new THREE.MeshStandardMaterial({
+                color: 0x116622,
+                roughness: 0.5,
+                emissive: 0x0a330a,
+                emissiveIntensity: 0.2
+            });
+
+            const stripeCount = isLowPerf ? 3 : 5;
+            const stripeRadial = isLowPerf ? 4 : 6;
+            const stripeTubular = isLowPerf ? 12 : 20;
+
+            for (let i = 0; i < stripeCount; i++) {
+                const s = new THREE.Mesh(
+                    new THREE.TorusGeometry(MELON_R, 0.06, stripeRadial, stripeTubular),
+                    stripeMat
+                );
+                s.rotation.y = (i / stripeCount) * Math.PI;
+                s.rotation.x = Math.PI / 2;
+                melonGroup.add(s);
+            }
         })();
+
         scene.add(melonGroup);
 
-        const segmentPositions=[]; for(let i=0;i<SEGMENTS;i++) segmentPositions.push(new THREE.Vector3(-i*SEGMENT_SPACING,0,0));
+        const segmentPositions = [];
+        for (let i = 0; i < SEGMENTS; i++) {
+            segmentPositions.push(new THREE.Vector3(-i * SEGMENT_SPACING, 0, 0));
+        }
 
-        // ⚡ Переиспользуемые геометрии/материалы препятствий — чтобы не плодить их на рестарте
-        const obsGeoLog  = new THREE.CylinderGeometry(0.4,0.4,3,10);
-        const obsGeoRock = new THREE.DodecahedronGeometry(0.6,0);
-        const obsGeoBush = new THREE.IcosahedronGeometry(0.6,0);
-        const obsMatLog  = new THREE.MeshStandardMaterial({color:0x6a4a1a,roughness:0.8});
-        const obsMatRock = new THREE.MeshStandardMaterial({color:0x888888,roughness:0.9,flatShading:true});
-        const obsMatBush = new THREE.MeshStandardMaterial({color:0x2a7a2a,roughness:0.8,flatShading:true});
+        // ⚡ Переиспользуемые геометрии/материалы препятствий
+        const obsGeoLog = new THREE.CylinderGeometry(0.4, 0.4, 3, 10);
+        const obsGeoRock = new THREE.DodecahedronGeometry(0.6, 0);
+        const obsGeoBush = new THREE.IcosahedronGeometry(0.6, 0);
 
-        function buildObstacles(){
-            // ⚡ remove + корректная очистка сцены (геометрии/материалы общие, их НЕ dispose'им)
-            obstacles.forEach(o=>{ if(o.mesh) scene.remove(o.mesh); });
-            obstacles=[];
-            const types=['log','rock','bush'];
-            for(let p=10;p<=95;p+=9+Math.floor(Math.random()*4)){
-                const type=types[Math.floor(Math.random()*types.length)];
+        const obsMatLog = new THREE.MeshStandardMaterial({ color: 0x6a4a1a, roughness: 0.8 });
+        const obsMatRock = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.9, flatShading: true });
+        const obsMatBush = new THREE.MeshStandardMaterial({ color: 0x2a7a2a, roughness: 0.8, flatShading: true });
+
+        function buildObstacles() {
+            obstacles.forEach(o => {
+                if (o.mesh) scene.remove(o.mesh);
+            });
+
+            obstacles = [];
+
+            const types = ['log', 'rock', 'bush'];
+
+            for (let p = 10; p <= 95; p += 9 + Math.floor(Math.random() * 4)) {
+                const type = types[Math.floor(Math.random() * types.length)];
                 let mesh;
-                if(type==='log'){ mesh=new THREE.Mesh(obsGeoLog, obsMatLog); mesh.rotation.x=Math.PI/2; }
-                else if(type==='rock'){ mesh=new THREE.Mesh(obsGeoRock, obsMatRock); }
-                else { mesh=new THREE.Mesh(obsGeoBush, obsMatBush); }
+
+                if (type === 'log') {
+                    mesh = new THREE.Mesh(obsGeoLog, obsMatLog);
+                    mesh.rotation.x = Math.PI / 2;
+                } else if (type === 'rock') {
+                    mesh = new THREE.Mesh(obsGeoRock, obsMatRock);
+                } else {
+                    mesh = new THREE.Mesh(obsGeoBush, obsMatBush);
+                }
+
                 mesh.position.set(worldX(p), 0.5, 0);
-                mesh.castShadow=!isLowPerf;
+                mesh.castShadow = enableShadows;
+
                 scene.add(mesh);
-                obstacles.push({pos:p, half:0.6, height:0.8, hit:false, mesh:mesh, baseY:0.5, fallen:0});
+
+                obstacles.push({
+                    pos: p,
+                    half: 0.6,
+                    height: 0.8,
+                    hit: false,
+                    mesh: mesh,
+                    baseY: 0.5,
+                    fallen: 0
+                });
             }
         }
 
-        // ⚡ Кэш DOM-элементов + запись только при изменении
-        const elTimer    = document.getElementById('timerDisplay');
+        // ⚡ Кэш DOM + обновление только при изменении
+        const elTimer = document.getElementById('timerDisplay');
         const elProgress = document.getElementById('progress-display');
-        const elLives    = document.getElementById('lives-display');
-        const elSpeed    = document.getElementById('speed-display');
-        let _lastTime = -1, _lastP = -1, _lastL = -1, _lastS = -1;
+        const elLives = document.getElementById('lives-display');
+        const elSpeed = document.getElementById('speed-display');
 
-        function updateTimerDisplay(){
-            if(gameTimeLeft === _lastTime) return; _lastTime = gameTimeLeft;
-            const m=Math.floor(gameTimeLeft/60), s=Math.floor(gameTimeLeft%60);
-            elTimer.textContent=`⏱ ${m}:${s.toString().padStart(2,'0')}`;
-            elTimer.classList.toggle('final', gameTimeLeft<=10);
-        }
-        function updateProgressDisplay(){
-            const v=Math.max(0,Math.min(100,Math.floor(progress)));
-            if(v === _lastP) return; _lastP = v;
-            elProgress.textContent=`🍉 ${v}%`;
-        }
-        function updateLivesDisplay(){
-            if(lives === _lastL) return; _lastL = lives;
-            let s=''; for(let i=0;i<3;i++) s+= i<lives? '🍉':'';
-            elLives.textContent=s;
-        }
-        function updateSpeed(){
-            const v=Math.round(speed*10);
-            if(v === _lastS) return; _lastS = v;
-            elSpeed.textContent=`⚡ ${speed.toFixed(1)}`;
+        let _lastTime = -1;
+        let _lastP = -1;
+        let _lastL = -1;
+        let _lastS = -1;
+
+        function updateTimerDisplay() {
+            if (gameTimeLeft === _lastTime) return;
+            _lastTime = gameTimeLeft;
+
+            const m = Math.floor(gameTimeLeft / 60);
+            const s = Math.floor(gameTimeLeft % 60);
+
+            if (elTimer) {
+                elTimer.textContent = `⏱ ${m}:${s.toString().padStart(2, '0')}`;
+                elTimer.classList.toggle('final', gameTimeLeft <= 10);
+            }
         }
 
-        function doJump(){
-            if(!isGameActive) return;
-            if(onGround){ onGround=false; jumpVel=JUMP_VEL; vibrate(15); playJump(); }
-            // ⚡ speakText('ttsJump') убран — именно он подвешивал UI-поток при частых прыжках
+        function updateProgressDisplay() {
+            const v = Math.max(0, Math.min(100, Math.floor(progress)));
+            if (v === _lastP) return;
+            _lastP = v;
+            if (elProgress) elProgress.textContent = `🍉 ${v}%`;
         }
 
-        function startGame(){
-            initAudio();
-            isGameActive=true;
-            gameTimeLeft=180; progress=0; speed=1.2;
-            jumpY=0; jumpVel=0; onGround=true;
-            lives=3; shakeTime=0;
-            // ⚡ Сброс кэша значений, чтобы HUD перерисовался на новой игре
-            _lastTime=-1; _lastP=-1; _lastL=-1; _lastS=-1;
-            buildObstacles();
-            updateTimerDisplay(); updateProgressDisplay(); updateLivesDisplay(); updateSpeed();
-            cameraTarget.set(worldX(0)+5,3,0);
-            camera.position.set(worldX(0)-5,4,12);
-            camera.lookAt(worldX(0)+3,2,0);
-            if(timerInterval) clearInterval(timerInterval);
-            timerInterval=setInterval(()=>{ if(!isGameActive)return; gameTimeLeft=Math.max(0,gameTimeLeft-1); updateTimerDisplay(); if(gameTimeLeft<=0){clearInterval(timerInterval); timerInterval=null; finishGame(false);} },1000);
-            showPage('page-game');
-            speakText('ttsStart', true);
+        function updateLivesDisplay() {
+            if (lives === _lastL) return;
+            _lastL = lives;
+
+            let s = '';
+            for (let i = 0; i < 3; i++) s += i < lives ? '🍉' : '';
+            if (elLives) elLives.textContent = s;
         }
-        window.startGame=startGame;
 
-        function startConfetti(){ const colors=['#22aa33','#55dd77','#ff5566','#ffee88','#cc88ff','#88ff88','#ffaa33']; for(let i=0;i<100;i++){ const c=document.createElement('div'); c.className='confetti'; c.style.left=Math.random()*100+'vw'; c.style.width=(Math.random()*10+5)+'px'; c.style.height=(Math.random()*10+5)+'px'; c.style.backgroundColor=colors[Math.floor(Math.random()*colors.length)]; c.style.transition=`top ${Math.random()*2+2}s linear, transform ${Math.random()*2+2}s linear, opacity 2s`; document.body.appendChild(c); setTimeout(()=>{c.style.top='110vh'; c.style.transform=`rotate(${Math.random()*720}deg) translateX(${(Math.random()-0.5)*200}px)`; c.style.opacity='0';},50); setTimeout(()=>c.remove(),4500); } }
+        function updateSpeed() {
+            const v = Math.round(speed * 10);
+            if (v === _lastS) return;
+            _lastS = v;
+            if (elSpeed) elSpeed.textContent = `⚡ ${speed.toFixed(1)}`;
+        }
 
-        window.finishGame=function(won){
-            if(!isGameActive)return; isGameActive=false;
-            if(timerInterval){clearInterval(timerInterval); timerInterval=null;}
-            const label=document.getElementById('result-label'); const emoji=document.getElementById('result-emoji');
-            const winBlock=document.getElementById('win-block'); const loseBlock=document.getElementById('lose-block');
-            const tr=translations[currentLang];
-            document.getElementById('result-progress').textContent=tr.progressReached+Math.max(0,Math.min(100,Math.floor(progress)))+'%';
-            if(won){ label.textContent=tr.resultWinLabel; label.style.color="#88ffaa"; emoji.textContent="🍉"; winBlock.style.display='block'; loseBlock.style.display='none'; startConfetti(); playWinSound(); speakText('ttsWin', true); }
-            else { label.textContent = lives<=0? '💥 АРБУЗ РАЗБИЛСЯ!' : tr.resultTimeLabel; label.style.color="#c0b0a8"; emoji.textContent="🍉"; winBlock.style.display='none'; loseBlock.style.display='block'; document.getElementById('result-text-lose').textContent = lives<=0? tr.ttsHit : tr.resultTimeText; playLoseSound(); speakText('ttsLose', true); }
+        function doJump() {
+            if (!isGameActive) return;
+            if (onGround) {
+                onGround = false;
+                jumpVel = JUMP_VEL;
+                vibrate(15);
+                playJump();
+            }
+        }
+
+        // ============================================================
+        // ⚡ RENDER CONTROL
+        // ============================================================
+        const clock = new THREE.Clock();
+        const cameraTarget = new THREE.Vector3(0, 2, 0);
+        const _desiredCamPos = new THREE.Vector3();
+        const _lookTarget = new THREE.Vector3();
+        const _lerpTarget = new THREE.Vector3();
+
+        let renderEnabled = false;
+        let rafId = null;
+        let lastFrame = 0;
+
+        const FPS_LIMIT = 60;
+        const FRAME_INTERVAL = 1000 / FPS_LIMIT;
+
+        function startRender() {
+            if (rafId !== null) return;
+            clock.start();
+            lastFrame = 0;
+            rafId = requestAnimationFrame(animate);
+        }
+
+        function stopRender() {
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+        }
+
+        window.showPage = function (pageId) {
+            blurActive();
+
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+            const page = document.getElementById(pageId);
+            if (page) page.classList.add('active');
+
+            const goingToGame = pageId === 'page-game';
+
+            isGameActive = goingToGame;
+            renderEnabled = goingToGame;
+
+            if (!goingToGame && timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+
+            const c = renderer && renderer.domElement;
+            if (c) {
+                c.classList.toggle('game-active', goingToGame);
+            }
+
+            if (goingToGame) {
+                startRender();
+            } else {
+                stopRender();
+            }
+        };
+
+        function startConfetti() {
+            const colors = ['#22aa33', '#55dd77', '#ff5566', '#ffee88', '#cc88ff', '#88ff88', '#ffaa33'];
+            const count = isLowPerf ? 24 : 35;
+
+            for (let i = 0; i < count; i++) {
+                const c = document.createElement('div');
+                c.className = 'confetti';
+                c.style.left = Math.random() * 100 + 'vw';
+                c.style.width = (Math.random() * 10 + 5) + 'px';
+                c.style.height = (Math.random() * 10 + 5) + 'px';
+                c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                c.style.transition = `top ${Math.random() * 2 + 2}s linear, transform ${Math.random() * 2 + 2}s linear, opacity 2s`;
+
+                document.body.appendChild(c);
+
+                setTimeout(() => {
+                    c.style.top = '110vh';
+                    c.style.transform = `rotate(${Math.random() * 720}deg) translateX(${(Math.random() - 0.5) * 200}px)`;
+                    c.style.opacity = '0';
+                }, 50);
+
+                setTimeout(() => c.remove(), 4500);
+            }
+        }
+
+        window.finishGame = function (won) {
+            if (!isGameActive) return;
+
+            isGameActive = false;
+            blurActive();
+
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+
+            const label = document.getElementById('result-label');
+            const emoji = document.getElementById('result-emoji');
+            const winBlock = document.getElementById('win-block');
+            const loseBlock = document.getElementById('lose-block');
+            const resultProgress = document.getElementById('result-progress');
+            const resultTextLose = document.getElementById('result-text-lose');
+
+            const tr = translations[currentLang];
+
+            if (resultProgress) {
+                resultProgress.textContent = tr.progressReached + Math.max(0, Math.min(100, Math.floor(progress))) + '%';
+            }
+
+            if (won) {
+                if (label) {
+                    label.textContent = tr.resultWinLabel;
+                    label.style.color = "#88ffaa";
+                }
+                if (emoji) emoji.textContent = "🍉";
+
+                if (winBlock) winBlock.style.display = 'block';
+                if (loseBlock) loseBlock.style.display = 'none';
+
+                startConfetti();
+                playWinSound();
+                speakText('ttsWin', true);
+            } else {
+                if (label) {
+                    label.textContent = lives <= 0 ? tr.resultCrashLabel : tr.resultTimeLabel;
+                    label.style.color = "#c0b0a8";
+                }
+                if (emoji) emoji.textContent = "🍉";
+
+                if (winBlock) winBlock.style.display = 'none';
+                if (loseBlock) loseBlock.style.display = 'block';
+
+                if (resultTextLose) {
+                    resultTextLose.textContent = lives <= 0 ? tr.ttsHit : tr.resultTimeText;
+                }
+
+                playLoseSound();
+                speakText('ttsLose', true);
+            }
+
             showPage('page-result');
         };
 
-        // ⚡ Флаг «нужно ли рендерить 3D» + защита от гонки скрытия канваса
-        let renderEnabled = false;
-        let hideCanvasTimer = null;
+        function startGame() {
+            initAudio();
+            blurActive();
 
-        window.showPage=function(pageId){
-            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-            document.getElementById(pageId).classList.add('active');
-            isGameActive=(pageId==='page-game');
-            renderEnabled=(pageId==='page-game');
-            const c=renderer.domElement;
-            if(!c) return;
-            if(pageId==='page-game'){
-                clearTimeout(hideCanvasTimer);
-                c.style.display='block';
-                // форс-рефлоу, чтобы transition сработал сразу
-                void c.offsetWidth;
-                c.classList.add('game-active');
-            } else {
-                c.classList.remove('game-active');
-                hideCanvasTimer=setTimeout(()=>{ c.style.display='none'; }, 300);
+            isGameActive = true;
+            gameTimeLeft = 180;
+            progress = 0;
+            speed = 1.2;
+
+            jumpY = 0;
+            jumpVel = 0;
+            onGround = true;
+
+            lives = 3;
+            shakeTime = 0;
+
+            _lastTime = -1;
+            _lastP = -1;
+            _lastL = -1;
+            _lastS = -1;
+
+            buildObstacles();
+
+            updateTimerDisplay();
+            updateProgressDisplay();
+            updateLivesDisplay();
+            updateSpeed();
+
+            cameraTarget.set(worldX(0) + 5, 3, 0);
+            camera.position.set(worldX(0) - 5, 4, 12);
+            camera.lookAt(worldX(0) + 3, 2, 0);
+
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                if (!isGameActive) return;
+
+                gameTimeLeft = Math.max(0, gameTimeLeft - 1);
+                updateTimerDisplay();
+
+                if (gameTimeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    finishGame(false);
+                }
+            }, 1000);
+
+            showPage('page-game');
+            speakText('ttsStart', true);
+        }
+
+        window.startGame = startGame;
+
+        // ⚡ Исправление: Пробел не должен «нажимать» сфокусированную кнопку
+        let spaceButtonGuard = false;
+
+        document.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+
+            const isJumpKey = e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW';
+            if (!isJumpKey) return;
+
+            // Если пробел нажат, пока фокус стоит на кнопке — блокируем активацию кнопки браузером
+            if (e.code === 'Space' && e.target && e.target.closest && e.target.closest('button')) {
+                spaceButtonGuard = true;
+                e.preventDefault();
+                blurActive();
             }
-        };
 
-        document.addEventListener('keydown',(e)=>{ if(e.repeat)return; if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'){ e.preventDefault(); doJump(); } });
-        const jumpBtn=document.getElementById('jump-btn');
-        jumpBtn.addEventListener('touchstart',(e)=>{e.preventDefault(); jumpBtn.classList.add('pressed'); doJump();},{passive:false});
-        jumpBtn.addEventListener('touchend',(e)=>{e.preventDefault(); jumpBtn.classList.remove('pressed');},{passive:false});
-        jumpBtn.addEventListener('mousedown',(e)=>{e.preventDefault(); jumpBtn.classList.add('pressed'); doJump();});
-        jumpBtn.addEventListener('mouseup',()=>jumpBtn.classList.remove('pressed'));
+            // Прыжок разрешён только когда игра активна
+            if (isGameActive) {
+                e.preventDefault();
+                doJump();
+            }
+        }, true);
 
-        const clock=new THREE.Clock();
-        const cameraTarget=new THREE.Vector3(0,2,0);
-        const _desiredCamPos=new THREE.Vector3();
-        const _lookTarget   =new THREE.Vector3();
-        const _lerpTarget   =new THREE.Vector3(); // ⚡ переиспользуем вместо new Vector3 каждый кадр
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' && spaceButtonGuard) {
+                e.preventDefault();
+                spaceButtonGuard = false;
+            }
+        }, true);
 
-        function animate(){
-            requestAnimationFrame(animate);
-            const delta=Math.min(clock.getDelta(),0.05);
-            const elapsed=clock.elapsedTime;
+        window.addEventListener('blur', () => {
+            spaceButtonGuard = false;
+        });
 
-            if(renderEnabled){
-                if(isGameActive){
-                    speed = Math.min(2.6, speed + delta*0.15);
-                    progress += speed*delta;
-                    updateSpeed();
+        const jumpBtn = document.getElementById('jump-btn');
 
-                    // 🍉 подброс арбуза
-                    if(!onGround){
-                        jumpVel -= GRAV*delta;
-                        jumpY += jumpVel*delta;
-                        if(jumpY<=0){ jumpY=0; jumpVel=0; onGround=true; }
+        if (jumpBtn) {
+            jumpBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                jumpBtn.classList.add('pressed');
+                doJump();
+            }, { passive: false });
+
+            jumpBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                jumpBtn.classList.remove('pressed');
+            }, { passive: false });
+
+            jumpBtn.addEventListener('touchcancel', () => {
+                jumpBtn.classList.remove('pressed');
+            });
+
+            jumpBtn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                jumpBtn.classList.add('pressed');
+                doJump();
+            });
+
+            jumpBtn.addEventListener('mouseup', () => {
+                jumpBtn.classList.remove('pressed');
+            });
+
+            jumpBtn.addEventListener('mouseleave', () => {
+                jumpBtn.classList.remove('pressed');
+            });
+        }
+
+        function animate(time) {
+            if (!renderEnabled) {
+                rafId = null;
+                return;
+            }
+
+            rafId = requestAnimationFrame(animate);
+
+            if (time - lastFrame < FRAME_INTERVAL) {
+                return;
+            }
+
+            lastFrame = time;
+
+            const delta = Math.min(clock.getDelta(), 0.05);
+            const elapsed = clock.elapsedTime;
+
+            if (isGameActive) {
+                speed = Math.min(2.6, speed + delta * 0.15);
+                progress += speed * delta;
+                updateSpeed();
+
+                // 🍉 подброс арбуза
+                if (!onGround) {
+                    jumpVel -= GRAV * delta;
+                    jumpY += jumpVel * delta;
+
+                    if (jumpY <= 0) {
+                        jumpY = 0;
+                        jumpVel = 0;
+                        onGround = true;
                     }
+                }
 
-                    // препятствия
-                    for(const o of obstacles){
-                        if(o.hit) continue;
-                        if(Math.abs(progress-o.pos)<o.half){
-                            if(jumpY < o.height){
-                                o.hit=true;
-                                lives--; updateLivesDisplay();
-                                speed*=0.5; shakeTime=0.4; o.fallen=1;
-                                playHit(); speakText('ttsHit'); vibrate(120);
-                                if(lives<=0){ finishGame(false); return; }
+                // препятствия
+                for (const o of obstacles) {
+                    if (o.hit) continue;
+
+                    if (Math.abs(progress - o.pos) < o.half) {
+                        if (jumpY < o.height) {
+                            o.hit = true;
+                            lives--;
+                            updateLivesDisplay();
+
+                            speed *= 0.5;
+                            shakeTime = 0.4;
+                            o.fallen = 1;
+
+                            playHit();
+                            speakText('ttsHit');
+                            vibrate(120);
+
+                            if (lives <= 0) {
+                                finishGame(false);
+                                return;
                             }
                         }
                     }
-                    for(const o of obstacles){
-                        if(o.hit && o.fallen<2){
-                            o.fallen+=delta*3;
-                            if(o.mesh){ o.mesh.rotation.z = Math.min(1.5,o.fallen*1.5); o.mesh.position.y = Math.max(0.2, o.baseY - o.fallen*0.4); }
-                        }
-                    }
-
-                    updateProgressDisplay();
-                    if(progress>=100){ finishGame(true); return; }
-
-                    // 🍉 арбуз чуть ВПЕРЁД
-                    const mx=worldX(progress);
-                    melonGroup.position.set(mx, MELON_R + jumpY, 0);
-                    melonGroup.rotation.z -= speed*0.05;
-
-                    // 🐍 змея СЗАДИ, голова слитна с телом
-                    const headWorldX = mx - MELON_R - 1.0;
-                    snakeGroup.position.set(headWorldX - 0.6, 0.5, 0);
-                    head.position.set(0.6, 0.1, 0);
-                    head.rotation.y = Math.PI/2;
-                    segmentPositions[0].set(0.15, 0.05, 0);
-                    for(let i=1;i<SEGMENTS;i++){
-                        const prev = segmentPositions[i-1];
-                        const t = i/SEGMENTS;
-                        const x = prev.x - SEGMENT_SPACING;
-                        const z = Math.sin(elapsed*4+i*0.5)*0.12*(1-t);
-                        const y = Math.sin(elapsed*4+i*0.5)*0.1;
-                        segmentPositions[i].set(x,y,z);
-                    }
-                    for(let i=0;i<SEGMENTS;i++) snakeBody[i].position.copy(segmentPositions[i]);
-
-                    const tongueOutAmount=Math.max(0,Math.sin(elapsed*6)*0.8+0.2)*0.3;
-                    tongueGroup.position.z=0.6+tongueOutAmount*0.3;
-                    tongueGroup.visible=tongueOutAmount>0.1;
                 }
 
-                if(shakeTime>0) shakeTime=Math.max(0,shakeTime-delta);
+                for (const o of obstacles) {
+                    if (o.hit && o.fallen < 2) {
+                        o.fallen += delta * 3;
 
-                _lerpTarget.set(melonGroup.position.x+4, 2+jumpY*0.3, 0);
-                cameraTarget.lerp(_lerpTarget, 0.08);
-                _desiredCamPos.set(cameraTarget.x-5, 4+jumpY*0.4, 12);
-                camera.position.lerp(_desiredCamPos, 0.08);
-                camera.position.x = Math.max(-70, Math.min(110, camera.position.x));
-                if(shakeTime>0){ camera.position.x+=(Math.random()-0.5)*shakeTime*0.6; camera.position.y+=(Math.random()-0.5)*shakeTime*0.6; }
-                _lookTarget.set(cameraTarget.x+3, 1.5, 0);
-                camera.lookAt(_lookTarget);
+                        if (o.mesh) {
+                            o.mesh.rotation.z = Math.min(1.5, o.fallen * 1.5);
+                            o.mesh.position.y = Math.max(0.2, o.baseY - o.fallen * 0.4);
+                        }
+                    }
+                }
 
-                renderer.render(scene,camera);
+                updateProgressDisplay();
+
+                if (progress >= 100) {
+                    finishGame(true);
+                    return;
+                }
+
+                // 🍉 арбуз чуть ВПЕРЁД
+                const mx = worldX(progress);
+                melonGroup.position.set(mx, MELON_R + jumpY, 0);
+                melonGroup.rotation.z -= speed * 0.05;
+
+                // 🐍 змея СЗАДИ
+                const headWorldX = mx - MELON_R - 1.0;
+                snakeGroup.position.set(headWorldX - 0.6, 0.5, 0);
+
+                head.position.set(0.6, 0.1, 0);
+                head.rotation.y = Math.PI / 2;
+
+                segmentPositions[0].set(0.15, 0.05, 0);
+
+                for (let i = 1; i < SEGMENTS; i++) {
+                    const prev = segmentPositions[i - 1];
+                    const t = i / SEGMENTS;
+
+                    const x = prev.x - SEGMENT_SPACING;
+                    const z = Math.sin(elapsed * 4 + i * 0.5) * 0.12 * (1 - t);
+                    const y = Math.sin(elapsed * 4 + i * 0.5) * 0.1;
+
+                    segmentPositions[i].set(x, y, z);
+                }
+
+                for (let i = 0; i < SEGMENTS; i++) {
+                    snakeBody[i].position.copy(segmentPositions[i]);
+                }
+
+                const tongueOutAmount = Math.max(0, Math.sin(elapsed * 6) * 0.8 + 0.2) * 0.3;
+                tongueGroup.position.z = 0.6 + tongueOutAmount * 0.3;
+                tongueGroup.visible = tongueOutAmount > 0.1;
             }
+
+            if (shakeTime > 0) {
+                shakeTime = Math.max(0, shakeTime - delta);
+            }
+
+            _lerpTarget.set(melonGroup.position.x + 4, 2 + jumpY * 0.3, 0);
+            cameraTarget.lerp(_lerpTarget, 0.08);
+
+            _desiredCamPos.set(cameraTarget.x - 5, 4 + jumpY * 0.4, 12);
+            camera.position.lerp(_desiredCamPos, 0.08);
+            camera.position.x = Math.max(-70, Math.min(110, camera.position.x));
+
+            if (shakeTime > 0) {
+                camera.position.x += (Math.random() - 0.5) * shakeTime * 0.6;
+                camera.position.y += (Math.random() - 0.5) * shakeTime * 0.6;
+            }
+
+            _lookTarget.set(cameraTarget.x + 3, 1.5, 0);
+            camera.lookAt(_lookTarget);
+
+            renderer.render(scene, camera);
         }
 
-        function handleResize(){ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); }
-        window.addEventListener('resize',handleResize);
-        window.addEventListener('orientationchange',()=>setTimeout(handleResize,200));
+        function handleResize() {
+            if (!renderer || !camera) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-        // ⚡ Мгновенная отрисовка фона: если картинка уже в кэше — показать сразу
-        (function showBgIfCached(){
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', () => setTimeout(handleResize, 200));
+
+        // ⚡ Обработка потери WebGL-контекста
+        renderer.domElement.addEventListener('webglcontextlost', (event) => {
+            event.preventDefault();
+            stopRender();
+        }, false);
+
+        renderer.domElement.addEventListener('webglcontextrestored', () => {
+            if (renderEnabled) {
+                startRender();
+            }
+        }, false);
+
+        // ⚡ Останавливаем рендер, когда вкладка скрыта
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopRender();
+            } else if (renderEnabled) {
+                startRender();
+            }
+        });
+
+        // ⚡ Мгновенная отрисовка фона, если картинка уже в кэше
+        (function showBgIfCached() {
             const img = document.getElementById('bgPhoto');
-            if(!img) return;
-            if(img.complete && img.naturalWidth > 0){ img.classList.add('loaded'); }
+            if (!img) return;
+            if (img.complete && img.naturalWidth > 0) {
+                img.classList.add('loaded');
+            }
         })();
 
-        document.getElementById('txt-startBtn').addEventListener('click',startGame);
+        const startBtn = document.getElementById('txt-startBtn');
+        if (startBtn) {
+            startBtn.addEventListener('click', startGame);
+        }
+
         updateLanguage();
-        animate();
-        console.log('✅ Змея и Арбуз — фиксы применены, фон грузится мгновенно.');
+
+        console.log('✅ Змея и Арбуз — исправлен Пробел, убрано повторное нажатие кнопки, рендер стабилен.');
     </script>
 </body>
 </html>
